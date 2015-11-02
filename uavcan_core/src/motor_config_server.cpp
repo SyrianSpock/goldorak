@@ -288,18 +288,11 @@ public:
             this->stream_config_cached.motor_encoder = config.motor_encoder;
             this->send_stream_config(this->target_id, this->stream_msg);
         }
-        if (this->stream_config_cached.motor_position != config.motor_position) {
-            this->stream_msg.stream = FeedbackStream::Request::STREAM_MOTOR_POSITION;
-            this->stream_msg.enabled = (config.motor_position != 0);
-            this->stream_msg.frequency = config.motor_position;
-            this->stream_config_cached.motor_position = config.motor_position;
-            this->send_stream_config(this->target_id, this->stream_msg);
-        }
-        if (this->stream_config_cached.motor_torque != config.motor_torque) {
-            this->stream_msg.stream = FeedbackStream::Request::STREAM_MOTOR_TORQUE;
-            this->stream_msg.enabled = (config.motor_torque != 0);
-            this->stream_msg.frequency = config.motor_torque;
-            this->stream_config_cached.motor_torque = config.motor_torque;
+        if (this->stream_config_cached.motor_state != config.motor_state) {
+            this->stream_msg.stream = FeedbackStream::Request::STREAM_MOTOR_STATE;
+            this->stream_msg.enabled = (config.motor_state != 0);
+            this->stream_msg.frequency = config.motor_state;
+            this->stream_config_cached.motor_state = config.motor_state;
             this->send_stream_config(this->target_id, this->stream_msg);
         }
     }
