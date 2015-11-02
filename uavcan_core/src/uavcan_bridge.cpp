@@ -11,8 +11,7 @@
 #include <cvra/motor/control/Torque.hpp>
 #include <cvra/motor/control/Voltage.hpp>
 
-#include <cvra/motor/feedback/MotorPosition.hpp>
-#include <cvra/motor/feedback/MotorTorque.hpp>
+#include <cvra/motor/feedback/MotorState.hpp>
 #include <cvra/motor/feedback/MotorEncoderPosition.hpp>
 #include <cvra/motor/feedback/Index.hpp>
 #include <cvra/motor/feedback/CurrentPID.hpp>
@@ -23,6 +22,7 @@
 #include "cvra_msgs/MotorControlSetpoint.h"
 #include "cvra_msgs/MotorFeedbackPID.h"
 #include "std_msgs/Float32.h"
+#include "sensor_msgs/JointState.h"
 
 extern uavcan::ICanDriver& getCanDriver();
 extern uavcan::ISystemClock& getSystemClock();
@@ -39,8 +39,7 @@ public:
     uavcan::Publisher<cvra::motor::control::Torque> torque_setpt_pub;
     uavcan::Publisher<cvra::motor::control::Voltage> voltage_setpt_pub;
 
-    uavcan::Subscriber<cvra::motor::feedback::MotorPosition> position_sub;
-    uavcan::Subscriber<cvra::motor::feedback::MotorTorque> torque_sub;
+    uavcan::Subscriber<cvra::motor::feedback::MotorState> state_sub;
     uavcan::Subscriber<cvra::motor::feedback::MotorEncoderPosition> encoder_sub;
     uavcan::Subscriber<cvra::motor::feedback::Index> index_sub;
     uavcan::Subscriber<cvra::motor::feedback::CurrentPID> current_pid_sub;
@@ -59,8 +58,7 @@ public:
         velocity_setpt_pub(uavcan_node),
         torque_setpt_pub(uavcan_node),
         voltage_setpt_pub(uavcan_node),
-        position_sub(uavcan_node),
-        torque_sub(uavcan_node),
+        state_sub(uavcan_node),
         encoder_sub(uavcan_node),
         index_sub(uavcan_node),
         current_pid_sub(uavcan_node),
@@ -104,16 +102,10 @@ public:
         this->voltage_setpt_pub.setPriority(uavcan::TransferPriority::MiddleLower);
 
         /* Intiialise UAVCAN subscribers (feedback stream) */
-        this->position_sub.start(
-            [&](const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorPosition>& msg)
+        this->state_sub.start(
+            [&](const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorState>& msg)
             {
-                this->position_sub_cb(msg);
-            }
-        );
-        this->torque_sub.start(
-            [&](const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorTorque>& msg)
-            {
-                this->torque_sub_cb(msg);
+                this->state_sub_cb(msg);
             }
         );
         this->encoder_sub.start(
@@ -195,10 +187,8 @@ public:
         this->voltage_setpt_pub.broadcast(this->voltage_msg);
     }
 
-    virtual void position_sub_cb(
-        const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorPosition>& msg) = 0;
-    virtual void torque_sub_cb(
-        const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorTorque>& msg) = 0;
+    virtual void state_sub_cb(
+        const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorState>& msg) = 0;
     virtual void encoder_sub_cb(
         const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorEncoderPosition>& msg) = 0;
     virtual void index_sub_cb(
@@ -217,9 +207,7 @@ public:
 
     std::map<int, ros::Subscriber> setpoint_sub;
 
-    std::map<int, ros::Publisher> position_pub;
-    std::map<int, ros::Publisher> velocity_pub;
-    std::map<int, ros::Publisher> torque_pub;
+    std::map<int, ros::Publisher> state_pub;
     std::map<int, ros::Publisher> encoder_pub;
     std::map<int, ros::Publisher> index_pub;
     std::map<int, ros::Publisher> voltage_pub;
@@ -227,9 +215,7 @@ public:
     std::map<int, ros::Publisher> position_pid_pub;
     std::map<int, ros::Publisher> velocity_pid_pub;
 
-    std_msgs::Float32 position_msg;
-    std_msgs::Float32 velocity_msg;
-    std_msgs::Float32 torque_msg;
+    sensor_msgs::JointState state_msg;
     std_msgs::Float32 encoder_msg;
     std_msgs::Float32 index_msg;
     std_msgs::Float32 voltage_msg;
@@ -251,12 +237,8 @@ public:
                 &UavcanRosMotorController::setpoint_cb, this);
 
             /* Intiialise ROS publishers (feedback stream) */
-            this->position_pub[elem.second] =
-                ros_node.advertise<std_msgs::Float32>(elem.first + "/feedback/position", 10);
-            this->velocity_pub[elem.second] =
-                ros_node.advertise<std_msgs::Float32>(elem.first + "/feedback/velocity", 10);
-            this->torque_pub[elem.second] =
-                ros_node.advertise<std_msgs::Float32>(elem.first + "/feedback/torque", 10);
+            this->state_pub[elem.second] =
+                ros_node.advertise<sensor_msgs::JointState>(elem.first + "/feedback/state", 10);
             this->encoder_pub[elem.second] =
                 ros_node.advertise<std_msgs::Float32>(elem.first + "/feedback/encoder_raw", 10);
             this->index_pub[elem.second] =
@@ -311,33 +293,22 @@ public:
         }
     }
 
-    virtual void position_sub_cb(
-        const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorPosition>& msg)
+    virtual void state_sub_cb(
+        const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorState>& msg)
     {
         int id = msg.getSrcNodeID().get();
 
         /* Check that the source node has an associated publisher */
-        if (position_pub.count(id) && velocity_pub.count(id)) {
-            ROS_INFO("Got motor position and velocity feedback from node %d", id);
+        if (state_pub.count(id)) {
+            ROS_INFO("Got motor joint state feedback from node %d", id);
 
-            this->position_msg.data = msg.position;
-            this->velocity_msg.data = msg.velocity;
+            this->state_msg.header.stamp = ros::Time::now();
+            this->state_msg.name[0]      = this->get_node_name_from_id(id);
+            this->state_msg.position[0]  = msg.position;
+            this->state_msg.velocity[0]  = msg.velocity;
+            this->state_msg.effort[0]    = msg.torque;
 
-            this->position_pub[id].publish(this->position_msg);
-            this->velocity_pub[id].publish(this->velocity_msg);
-        }
-    }
-
-    virtual void torque_sub_cb(
-        const uavcan::ReceivedDataStructure<cvra::motor::feedback::MotorTorque>& msg)
-    {
-        int id = msg.getSrcNodeID().get();
-
-        /* Check that the source node has an associated publisher */
-        if (torque_pub.count(id)) {
-            ROS_INFO("Got motor torque feedback from node %d", id);
-            this->torque_msg.data = msg.torque;
-            this->torque_pub[id].publish(this->torque_msg);
+            this->state_pub[id].publish(this->state_msg);
         }
     }
 
@@ -411,6 +382,19 @@ public:
             this->position_pid_msg.measured = msg.position;
             this->position_pid_pub[id].publish(this->position_pid_msg);
         }
+    }
+
+    std::string get_node_name_from_id(int id)
+    {
+        std::string name = "";
+
+        for (const auto& elem : this->uavcan_nodes) {
+            if (elem.second == id) {
+                name = elem.first;
+            }
+        }
+
+        return name;
     }
 };
 
