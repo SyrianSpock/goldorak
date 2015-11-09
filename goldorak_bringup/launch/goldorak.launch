@@ -1,27 +1,30 @@
 <launch>
     <arg name="robot_ns" default="goldorak" />
 
+    <!-- Load list of UAVCAN nodes -->
     <rosparam command="load" file="$(find goldorak_bringup)/param/uavcan_nodes.yaml"/>
 
+    <!-- Load motors parameters -->
+    <rosparam command="load"
+              file="$(find goldorak_bringup)/param/right_wheel.yaml"
+              ns="$(arg robot_ns)/right_wheel" />
+    <rosparam command="load"
+              file="$(find goldorak_bringup)/param/left_wheel.yaml"
+              ns="$(arg robot_ns)/left_wheel" />
+
+    <!-- Start the bridge -->
     <node name="uavcan_bridge"
           pkg="uavcan_core"
           type="uavcan_bridge"
           args="10"
           ns="$(arg robot_ns)"/>
 
-    <!-- Right wheel -->
-    <include file="$(find uavcan_core)/launch/motor.launch" ns="$(arg robot_ns)">
-        <arg name="motor_ns" value="right_wheel" />
-        <arg name="node_uavcan_id" value="11" />
-        <arg name="motor_uavcan_id" value="50" />
-        <arg name="default_params" value="$(find goldorak_bringup)/param/right_wheel.yaml" />
-    </include>
-
-    <!-- Left wheel -->
-    <include file="$(find uavcan_core)/launch/motor.launch" ns="$(arg robot_ns)">
-        <arg name="motor_ns" value="left_wheel" />
-        <arg name="node_uavcan_id" value="12" />
-        <arg name="motor_uavcan_id" value="41" />
-        <arg name="default_params" value="$(find goldorak_bringup)/param/left_wheel.yaml" />
-    </include>
+    <!-- Start configuration node -->
+    <node name="motor_control_config"
+          pkg="uavcan_core"
+          type="motor_config_server"
+          args="11"
+          ns="$(arg robot_ns)"
+          respawn="true"
+          output="screen"/>
 </launch>

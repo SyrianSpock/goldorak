@@ -238,14 +238,14 @@ public:
     dynamic_reconfigure::Server<uavcan_core::EnableMotorConfig>::CallbackType f_enable;
     dynamic_reconfigure::Server<uavcan_core::FeedbackStreamConfig>::CallbackType f_stream;
 
-    UavcanRosMotorConfig(int uavcan_id, int target_id):
+    UavcanRosMotorConfig(int uavcan_id, int target_id, std::string name):
         UavcanMotorConfig(uavcan_id),
-        nh_pos_pid("~pid_position"),
-        nh_vel_pid("~pid_velocity"),
-        nh_cur_pid("~pid_current"),
-        nh_params("~parameters"),
-        nh_enable("~enable"),
-        nh_stream("~stream"),
+        nh_pos_pid(name + "/pid_position"),
+        nh_vel_pid(name + "/pid_velocity"),
+        nh_cur_pid(name + "/pid_current"),
+        nh_params(name + "/parameters"),
+        nh_enable(name + "/enable"),
+        nh_stream(name + "/stream"),
         cfg_pos_pid(this->nh_pos_pid),
         cfg_vel_pid(this->nh_vel_pid),
         cfg_cur_pid(this->nh_cur_pid),
@@ -415,31 +415,37 @@ public:
             this->send_stream_config(this->target_id, this->stream_msg);
         }
     }
-
-    void spin(void)
-    {
-        while (ros::ok()) {
-            ros::spinOnce();
-            this->spin_once();
-        }
-    }
 };
 
 int main(int argc, char **argv)
 {
-    if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " <node-id> <target-id>" << std::endl;
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <node-id> " << std::endl;
         return 1;
     }
 
     const int node_id = std::stoi(argv[1]);
-    const int target_id = std::stoi(argv[2]);
 
     ros::init(argc, argv, "motor_control_config");
 
-    UavcanRosMotorConfig ros_motor_config(node_id, target_id);
+    /* Get list of UAVCAN nodes (names with IDs) */
+    std::map<std::string, int> uavcan_nodes;
+    ros::param::get("/uavcan_nodes", uavcan_nodes);
 
-    ros_motor_config.spin();
+    /* Initialise config nodes */
+    UavcanRosMotorConfig* ros_motor_config[127];
+
+    for (const auto& elem : uavcan_nodes) {
+        ros_motor_config[elem.second] = new UavcanRosMotorConfig(node_id, elem.second, elem.first);
+        sleep(10);
+    }
+
+    while (ros::ok()) {
+        for (const auto& elem : uavcan_nodes) {
+            ros::spinOnce();
+            ros_motor_config[elem.second]->spin_once();
+        }
+    }
 
     return 0;
 }
