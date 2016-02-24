@@ -3,24 +3,50 @@
   <model name="table2016">
     <pose>0 0 1  1.5708 0 0</pose>
     <static>true</static>
-    <link name="body">
+    <link name="1-Table">
       <visual name="visual">
         <geometry>
           <mesh>
-            <uri>model://table2016/meshes/table.dae</uri>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://table2016/meshes/1-Table.stl</uri>
           </mesh>
         </geometry>
         <material>
           <script>
             <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Yellow</name>
+            <name>Gazebo/Blue</name>
           </script>
         </material>
       </visual>
       <collision name="collision">
         <geometry>
           <mesh>
-            <uri>model://table2016/meshes/table.dae</uri>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://table2016/meshes/1-Table.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+    </link>
+    <link name="2-Roundborder">
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://table2016/meshes/2-Roundborder.stl</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://table2016/meshes/2-Roundborder.stl</uri>
           </mesh>
         </geometry>
       </collision>
