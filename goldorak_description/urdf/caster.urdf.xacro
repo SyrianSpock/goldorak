@@ -2,8 +2,8 @@
 
 <!-- Caster link xacro -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-
   <xacro:macro name="caster" params="prefix reflect">
+
     <link name="${prefix}_caster">
       <visual>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
