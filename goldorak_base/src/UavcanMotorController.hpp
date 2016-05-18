@@ -1,6 +1,7 @@
 #ifndef UAVCAN_MOTOR_CONTROLLER_HPP
 #define UAVCAN_MOTOR_CONTROLLER_HPP
 
+#include <pthread.h>
 #include <uavcan/uavcan.hpp>
 
 #include <cvra/motor/control/Trajectory.hpp>
@@ -19,8 +20,11 @@
 
 class UavcanMotorController
 {
+private:
     static const unsigned NodeMemoryPoolSize = 16384;
     typedef uavcan::Node<NodeMemoryPoolSize> Node;
+
+    pthread_mutex_t uavcan_mutex;
 
 public:
     uavcan::Publisher<cvra::motor::control::Trajectory> trajectory_setpt_pub;
@@ -57,6 +61,8 @@ public:
         position_pid_sub(uavcan_node),
         velocity_pid_sub(uavcan_node)
     {
+        uavcan_mutex = PTHREAD_MUTEX_INITIALIZER;
+
         /* Initialise UAVCAN publishers (setpoint sending) */
         const int traj_pub_init_res = this->trajectory_setpt_pub.init();
         if (traj_pub_init_res < 0) {
@@ -150,7 +156,9 @@ public:
         this->trajectory_msg.acceleration = acceleration;
         this->trajectory_msg.torque = torque;
 
+        pthread_mutex_lock(&uavcan_mutex);
         this->trajectory_setpt_pub.broadcast(this->trajectory_msg);
+        pthread_mutex_unlock(&uavcan_mutex);
     }
 
     void send_position_setpoint(int node_id, float position)
@@ -158,7 +166,9 @@ public:
         this->position_msg.node_id = node_id;
         this->position_msg.position = position;
 
+        pthread_mutex_lock(&uavcan_mutex);
         this->position_setpt_pub.broadcast(this->position_msg);
+        pthread_mutex_unlock(&uavcan_mutex);
     }
 
     void send_velocity_setpoint(int node_id, float velocity)
@@ -166,7 +176,9 @@ public:
         this->velocity_msg.node_id = node_id;
         this->velocity_msg.velocity = velocity;
 
+        pthread_mutex_lock(&uavcan_mutex);
         this->velocity_setpt_pub.broadcast(this->velocity_msg);
+        pthread_mutex_unlock(&uavcan_mutex);
     }
 
     void send_torque_setpoint(int node_id, float torque)
@@ -174,7 +186,9 @@ public:
         this->torque_msg.node_id = node_id;
         this->torque_msg.torque = torque;
 
+        pthread_mutex_lock(&uavcan_mutex);
         this->torque_setpt_pub.broadcast(this->torque_msg);
+        pthread_mutex_unlock(&uavcan_mutex);
     }
 
     void send_voltage_setpoint(int node_id, float voltage)
@@ -182,7 +196,9 @@ public:
         this->voltage_msg.node_id = node_id;
         this->voltage_msg.voltage = voltage;
 
+        pthread_mutex_lock(&uavcan_mutex);
         this->voltage_setpt_pub.broadcast(this->voltage_msg);
+        pthread_mutex_unlock(&uavcan_mutex);
     }
 
     virtual void position_sub_cb(
